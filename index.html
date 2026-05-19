@@ -15,6 +15,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Changa+One&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Abril+Fatface&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Rubik+Lines&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Moo+Lah+Lah&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Jost:ital,wght@0,400;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=League+Script&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=ZCOOL+XiaoWei&display=swap" rel="stylesheet">
@@ -80,7 +81,7 @@
         }
         .preloader.exit { clip-path: circle(0% at 50% 50%); pointer-events: none; }
         .preloader-brand {
-            font-family: 'Rubik Lines', 'Playfair Display', cursive;
+            font-family: 'Moo Lah Lah', 'Playfair Display', cursive;
             font-size: clamp(2.4rem, 5.5vw, 3.8rem);
             font-weight: 400;
             letter-spacing: 0.04em;
@@ -5015,6 +5016,7 @@ void main() {
             let tarotCleanupTimer = null;
 
             function openTarot(index) {
+                try { new Audio("Mouse Click.mp3").play().catch(() => {}); } catch (_) {}
                 // Clear any pending cleanup from previous close
                 clearTimeout(tarotCleanupTimer);
                 tarotStage.querySelectorAll('.tarot-card').forEach(c => c.classList.remove('show'));
@@ -5371,6 +5373,7 @@ void main() {
             ];
 
             function openModal(index) {
+                try { new Audio("Mouse Click.mp3").play().catch(() => {}); } catch (_) {}
                 const data = modalData[index];
                 if (!data) return;
                 modalYear.textContent = data.year;
@@ -5495,6 +5498,7 @@ void main() {
             const imagePreviewClose = document.getElementById('imagePreviewClose');
 
             function openImagePreview(imgSrc) {
+                try { new Audio("Mouse Click.mp3").play().catch(() => {}); } catch (_) {}
                 imagePreviewImg.src = imgSrc;
                 imagePreviewModal.classList.add('active');
                 document.body.style.overflow = 'hidden';
@@ -5728,8 +5732,9 @@ void main() {
             }, { threshold: 0.1 });
             darkSections.forEach(s => sectionObserver.observe(s));
 
-            /* firstClick — starts audio + hides hint + scrolls */
+            /* firstClick — click sound + starts audio + hides hint + scrolls */
             document.addEventListener("click", function firstClick(e) {
+                try { new Audio("Mouse Click.mp3").play().catch(() => {}); } catch (_) {}
                 const clickHint = document.getElementById("clickHint");
                 if (clickHint) {
                     const container = clickHint.querySelector(".click-hint-container");
@@ -5742,7 +5747,7 @@ void main() {
                     setTimeout(() => { clickHint.style.display = "none"; }, 600);
                 }
                 if (!isPlaying) {
-                    if (!audio.src) { audio.src = "toe - two moons.mp3"; audio.loop = true; audio.volume = 0.7; }
+                    if (!audio.src) { audio.src = "toe - two moons.mp3"; audio.loop = true; audio.volume = 0.35; }
                     audio.play().then(() => {
                         isPlaying = true;
                         playBtn.innerHTML = pauseIcon;
@@ -6048,7 +6053,7 @@ void main() {
             window.addEventListener("load", () => {
                 audio.src = "toe - two moons.mp3";
                 audio.loop = true;
-                audio.volume = 0.7;
+                audio.volume = 0.35;
                 audio.preload = "auto";
                 volFill.style.width = "70%";
                 audio.play().then(() => {
