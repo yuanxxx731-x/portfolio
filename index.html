@@ -20,7 +20,7 @@
     <link href="https://fonts.loli.net/css2?family=League+Script&display=swap" rel="stylesheet">
     <link href="https://fonts.loli.net/css2?family=ZCOOL+XiaoWei&display=swap" rel="stylesheet">
     <link href="https://fonts.loli.net/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
-    <script src="https://lf6-cdn-tos.bytecdntp.com/cdn/expire-1-M/three.js/0.160.0/three.min.js" async onerror="window.__threeFailed=true"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js" async onerror="window.__threeFailed=true"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -4360,9 +4360,8 @@ void main() {
                 if (w < 1 || h < 1) { console.log('Nebula: hero has zero size, retrying...'); setTimeout(start, 200); return; }
                 if (typeof THREE === 'undefined') {
                     window.__threeRetries = (window.__threeRetries || 0) + 1;
-                    if (window.__threeFailed || window.__threeRetries > 30) { console.log('Nebula: THREE unavailable, using CSS fallback'); hero.classList.add('nebula-fallback'); return; }
-                    console.log('Nebula: waiting for THREE... retry', window.__threeRetries);
-                    setTimeout(start, 400); return;
+                    if (window.__threeFailed) { console.log('Nebula: THREE unavailable, using CSS fallback'); hero.classList.add('nebula-fallback'); return; }
+                    setTimeout(start, 500); return;
                 }
                 if (sceneData) { console.log('Nebula: already initialized'); return; }
                 console.log('Nebula: init with', PARTICLE_COUNT, 'particles, hero size', w, 'x', h);
