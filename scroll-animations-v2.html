@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scroll Animations — with Camera Transition</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --black: #0a0a0a;
+  --white: #fafafa;
+  --gray-100: #f0f0f0;
+  --gray-300: #d0d0d0;
+  --gray-500: #888;
+  --font-display: 'Georgia', 'Times New Roman', serif;
+  --font-body: 'Helvetica Neue', 'Arial', sans-serif;
+}
+
+html { scroll-behavior: smooth; }
+body {
+  background: var(--white);
+  color: var(--black);
+  font-family: var(--font-body);
+  overflow-x: hidden;
+}
+
+/* =====================================================
+   导航
+===================================================== */
+nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 3rem;
+  mix-blend-mode: difference; /* 文字自动反色，白底黑字/黑底白字 */
+}
+.nav-logo {
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: -0.01em;
+  color: white; /* mix-blend-mode:difference 下 white 在黑背景上反转为黑 */
+}
+.nav-links { display: flex; gap: 2rem; list-style: none; }
+.nav-links a {
+  text-decoration: none;
+  color: white;
+  font-size: 0.85rem;
+  opacity: 0.7;
+}
+
+/* =====================================================
+   动效 0：镜头推拉 Hero
+   
+   实现原理（方案 B — clip-path inset）：
+   
+   结构：
+     .hero-outer          → position:sticky, height:100vh，固定在视口
+     .hero-clip           → clip-path 裁剪窗口，随滚动从 inset(0%) 收缩
+     .hero-bg             → 背景图层，随滚动 scale(1 → 1.25) 模拟推进
+     .hero-content        → 文字层，随滚动 opacity/translateY 消散
+   
+   时间线（外层容器 .hero-scroll-space 高度 = 300vh）：
+     scrollY 0  → 0%：  入场动画播放（CSS animation）
+     scrollY 进入区间：  clip-path inset 逐渐增大（画面收窄）
+                         bg scale 逐渐增大（镜头推进）
+                         文字透明度降为 0
+     scrollY 到底：      下一区块自然出现
+===================================================== */
+
+/* 滚动空间撑高，让 sticky 停留 */
+.hero-scroll-space {
+  height: 300vh;
+  position: relative;
+}
+
+/* 粘性容器 */
+.hero-outer {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: hidden;
+  z-index: 1;
+}
+
+/* clip-path 裁剪层 */
+.hero-clip {
+  position: absolute;
+  inset: 0;
+  /* JS 会更新这个值 */
+  clip-path: inset(0% round 0px);
+  will-change: clip-path;
+  overflow: hidden;
+}
+
+/* 背景图层 */
+.hero-bg {
+  position: absolute;
+  inset: -8%;  /* 预留放大空间，防止 scale 时露白边 */
+  background: #0a0a0a;
+  will-change: transform;
+  transform-origin: center center;
+
+  /* 用 CSS grid 模拟一张"摄影作品"背景 */
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  grid-template-rows: repeat(8, 1fr);
+  gap: 1px;
+  background-color: #111;
+}
+
+/* 背景格子（模拟图片纹理） */
+.hero-bg-cell {
+  background: #141414;
+  transition: background 0.3s;
+}
+.hero-bg-cell:nth-child(3n)   { background: #161616; }
+.hero-bg-cell:nth-child(5n)   { background: #0e0e0e; }
+.hero-bg-cell:nth-child(7n)   { background: #181818; }
+
+/* 前景叠加渐变（增加层次感） */
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 30% 60%, rgba(60,40,20,0.25) 0%, transparent 60%),
+              linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.5) 100%);
+  pointer-events: none;
+}
+
+/* 文字内容 */
+.hero-content {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 5rem 4rem;
+  will-change: opacity, transform;
+}
+
+.hero-eyebrow {
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.4);
+  margin-bottom: 1.5rem;
+  /* 入场动画 */
+  opacity: 0;
+  transform: translateY(20px);
+  animation: fadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.3s forwards;
+}
+
+.hero-title {
+  font-family: var(--font-display);
+  font-size: clamp(3rem, 8vw, 8rem);
+  font-weight: 400;
+  color: white;
+  line-height: 1.0;
+  letter-spacing: -0.04em;
+  margin-bottom: 2rem;
+  opacity: 0;
+  transform: translateY(30px);
+  animation: fadeUp 1s cubic-bezier(0.16, 1, 0.3, 1) 0.5s forwards;
+}
+
+.hero-meta {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  opacity: 0;
+  animation: fadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.8s forwards;
+}
+
+.hero-meta-item {
+  font-size: 0.8rem;
+  color: rgba(255,255,255,0.45);
+  letter-spacing: 0.05em;
+}
+
+.hero-scroll-hint {
+  position: absolute;
+  bottom: 3rem;
+  right: 4rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  opacity: 0;
+  animation: fadeUp 0.8s ease 1.2s forwards;
+}
+.hero-scroll-hint span {
+  font-size: 0.65rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.3);
+  writing-mode: vertical-rl;
+}
+.scroll-line {
+  width: 1px;
+  height: 60px;
+  background: linear-gradient(to bottom, rgba(255,255,255,0.4), transparent);
+  animation: scrollLine 1.5s ease-in-out 1.5s infinite;
+}
+
+@keyframes fadeUp {
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes scrollLine {
+  0%   { transform: scaleY(0); transform-origin: top; }
+  50%  { transform: scaleY(1); transform-origin: top; }
+  51%  { transform: scaleY(1); transform-origin: bottom; }
+  100% { transform: scaleY(0); transform-origin: bottom; }
+}
+
+/* =====================================================
+   Hero 入场：页面加载时背景轻微 scale 拉远
+   （从 1.08 → 1.0，模拟镜头拉开）
+===================================================== */
+.hero-bg {
+  animation: heroBgPull 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes heroBgPull {
+  from { transform: scale(1.1); }
+  to   { transform: scale(1.0); }
+}
+
+/* =====================================================
+   动效 1：文字随滚轮填充黑色
+===================================================== */
+section { padding: 8rem 3rem; max-width: 1400px; margin: 0 auto; }
+.section-label {
+  display: inline-block;
+  font-size: 0.7rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--gray-500);
+  margin-bottom: 3rem;
+}
+
+.text-fill-section { padding-top: 12rem; padding-bottom: 12rem; }
+
+.fill-text {
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 6vw, 5.5rem);
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  font-weight: 400;
+  background: linear-gradient(
+    to right,
+    var(--black) 0%,
+    var(--black) var(--fill-pct, 0%),
+    var(--gray-300) var(--fill-pct, 0%),
+    var(--gray-300) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  --fill-pct: 0%;
+}
+
+.word-fill-container {
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 4vw, 3.5rem);
+  line-height: 1.4;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  max-width: 900px;
+  margin-top: 4rem;
+}
+.word-fill-container .word {
+  display: inline;
+  color: var(--gray-300);
+  transition: color 0.4s ease;
+  margin-right: 0.25em;
+}
+.word-fill-container .word.filled { color: var(--black); }
+
+.fill-paragraph {
+  font-size: clamp(1.1rem, 2.5vw, 1.6rem);
+  font-weight: 300;
+  line-height: 1.7;
+  color: var(--gray-300);
+  max-width: 800px;
+  margin-top: 2rem;
+  transition: color 0.5s;
+}
+.fill-paragraph.in-view { color: var(--black); }
+
+/* =====================================================
+   动效 2：卡片横向滑动
+===================================================== */
+.horizontal-scroll-outer {
+  position: relative;
+  height: var(--scroll-height, 400vh);
+  background: var(--black);
+}
+.horizontal-scroll-sticky {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.hs-header { padding: 3rem 3rem 1.5rem; flex-shrink: 0; }
+.hs-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.4);
+  margin-bottom: 0.5rem;
+}
+.hs-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 4vw, 3rem);
+  font-weight: 400;
+  color: var(--white);
+  letter-spacing: -0.03em;
+}
+.hs-progress-bar {
+  width: calc(100% - 6rem);
+  margin: 1rem 3rem;
+  height: 1px;
+  background: rgba(255,255,255,0.15);
+  flex-shrink: 0;
+  position: relative;
+}
+.hs-progress-fill {
+  position: absolute;
+  top: 0; left: 0;
+  height: 100%;
+  background: var(--white);
+  width: 0%;
+  transition: width 0.1s linear;
+}
+.cards-track-wrapper {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  padding: 0 3rem;
+}
+.cards-track { display: flex; gap: 2rem; will-change: transform; }
+
+.h-card {
+  flex-shrink: 0;
+  width: clamp(280px, 38vw, 480px);
+  height: clamp(320px, 55vh, 520px);
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05);
+  padding: 2.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.3s;
+  cursor: pointer;
+}
+.h-card:hover { border-color: rgba(255,255,255,0.3); }
+.h-card::before {
+  content: '';
+  position: absolute;
+  width: 300px; height: 300px;
+  border-radius: 50%;
+  top: -80px; right: -80px;
+  background: radial-gradient(circle, rgba(255,255,255,0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+.card-number { font-size: 0.75rem; letter-spacing: 0.1em; color: rgba(255,255,255,0.3); }
+.card-icon { font-size: 2.5rem; line-height: 1; margin-bottom: 1rem; }
+.card-body { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; }
+.card-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.4rem, 2.5vw, 1.9rem);
+  font-weight: 400;
+  color: var(--white);
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.75rem;
+}
+.card-desc { font-size: 0.9rem; line-height: 1.6; color: rgba(255,255,255,0.5); }
+.card-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 1.5rem;
+  padding: 0.4rem 0.8rem;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 100px;
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.6);
+  width: fit-content;
+}
+.h-card.card-warm { background: rgba(220,80,40,0.15); border-color: rgba(220,80,40,0.3); }
+.h-card.card-cool { background: rgba(40,100,220,0.15); border-color: rgba(40,100,220,0.3); }
+.h-card.card-sage { background: rgba(60,160,100,0.15); border-color: rgba(60,160,100,0.3); }
+.h-card.card-gold { background: rgba(180,140,40,0.15); border-color: rgba(180,140,40,0.3); }
+
+/* ===== 页脚 ===== */
+.footer-section { padding: 10rem 3rem; text-align: center; }
+.footer-title {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 5vw, 4rem);
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  margin-bottom: 1.5rem;
+  background: linear-gradient(to right, var(--black) 0%, var(--black) var(--fill-pct, 0%), var(--gray-300) var(--fill-pct, 0%), var(--gray-300) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  --fill-pct: 0%;
+}
+</style>
+</head>
+<body>
+
+<!-- 导航 -->
+<nav>
+  <div class="nav-logo">Studio</div>
+  <ul class="nav-links">
+    <li><a href="#">Work</a></li>
+    <li><a href="#">About</a></li>
+    <li><a href="#">Contact</a></li>
+  </ul>
+</nav>
+
+
+<!-- ================================================================
+     动效 0：Hero 镜头推拉过渡
+================================================================ -->
+<div class="hero-scroll-space" id="heroScrollSpace">
+  <div class="hero-outer" id="heroOuter">
+
+    <!-- clip-path 裁剪层（随滚动收缩） -->
+    <div class="hero-clip" id="heroClip">
+
+      <!-- 背景（随滚动放大，模拟镜头推进） -->
+      <div class="hero-bg" id="heroBg">
+        <!-- 96格格子（12×8），模拟暗调摄影背景 -->
+        <script>
+          // 在 DOMContentLoaded 之前直接输出格子
+          // 因为是 inline script，HTML 解析时执行
+          document.write(Array(96).fill('<div class="hero-bg-cell"></div>').join(''));
+        </script>
+      </div>
+
+      <!-- 叠加渐变 -->
+      <div class="hero-overlay"></div>
+
+      <!-- 文字内容 -->
+      <div class="hero-content" id="heroContent">
+        <p class="hero-eyebrow">Creative Studio — Est. 2024</p>
+        <h1 class="hero-title">
+          Where ideas<br>become iconic.
+        </h1>
+        <div class="hero-meta">
+          <span class="hero-meta-item">Tokyo · London · Berlin</span>
+          <span class="hero-meta-item">—</span>
+          <span class="hero-meta-item">Brand · Digital · Motion</span>
+        </div>
+      </div>
+
+      <!-- 滚动提示 -->
+      <div class="hero-scroll-hint">
+        <div class="scroll-line"></div>
+        <span>scroll</span>
+      </div>
+
+    </div><!-- /hero-clip -->
+  </div><!-- /hero-outer -->
+</div><!-- /hero-scroll-space -->
+
+
+<!-- ================================================================
+     动效 1：文字随滚轮填充黑色
+================================================================ -->
+<section class="text-fill-section">
+  <div class="section-label">Scroll Animation 01 — Text Fill</div>
+
+  <div class="fill-text-wrapper" data-fill-text>
+    <h2 class="fill-text" data-scroll-fill>
+      We craft digital experiences that move people forward.
+    </h2>
+  </div>
+
+  <div class="word-fill-container" data-word-fill>
+    Design is not decoration — it is the invisible architecture of every meaningful interaction between human beings and the world they inhabit.
+  </div>
+
+  <p class="fill-paragraph" data-para-fill>
+    Every scroll, every interaction, every moment of discovery.<br>
+    We believe great design has the power to change perspective.
+  </p>
+</section>
+
+
+<!-- ================================================================
+     动效 2：卡片横向滑动
+================================================================ -->
+<div class="horizontal-scroll-outer" id="hsOuter" data-hs>
+  <div class="horizontal-scroll-sticky" id="hsSticky">
+
+    <div class="hs-header">
+      <p class="hs-label">Scroll Animation 02 — Horizontal Cards</p>
+      <h2 class="hs-title">Our capabilities</h2>
+    </div>
+
+    <div class="hs-progress-bar">
+      <div class="hs-progress-fill" id="hsProgress"></div>
+    </div>
+
+    <div class="cards-track-wrapper">
+      <div class="cards-track" id="cardsTrack">
+        <div class="h-card">
+          <span class="card-number">01</span>
+          <div class="card-body">
+            <div class="card-icon">◎</div>
+            <h3 class="card-title">Brand Strategy</h3>
+            <p class="card-desc">We build identities that resonate deeply and stand the test of time across all touchpoints.</p>
+            <span class="card-tag">↗ Explore</span>
+          </div>
+        </div>
+        <div class="h-card card-warm">
+          <span class="card-number">02</span>
+          <div class="card-body">
+            <div class="card-icon">✦</div>
+            <h3 class="card-title">Digital Design</h3>
+            <p class="card-desc">Interfaces that feel inevitable — where every pixel earns its place with purpose and clarity.</p>
+            <span class="card-tag">↗ Explore</span>
+          </div>
+        </div>
+        <div class="h-card card-cool">
+          <span class="card-number">03</span>
+          <div class="card-body">
+            <div class="card-icon">⬡</div>
+            <h3 class="card-title">Motion & Interaction</h3>
+            <p class="card-desc">Animation as communication — bringing personality and life to static moments through movement.</p>
+            <span class="card-tag">↗ Explore</span>
+          </div>
+        </div>
+        <div class="h-card card-sage">
+          <span class="card-number">04</span>
+          <div class="card-body">
+            <div class="card-icon">⬤</div>
+            <h3 class="card-title">Web Development</h3>
+            <p class="card-desc">Performant, accessible code built with craft — because how it works is part of how it feels.</p>
+            <span class="card-tag">↗ Explore</span>
+          </div>
+        </div>
+        <div class="h-card card-gold">
+          <span class="card-number">05</span>
+          <div class="card-body">
+            <div class="card-icon">◈</div>
+            <h3 class="card-title">Creative Direction</h3>
+            <p class="card-desc">Strategic vision that connects the why to the what — guiding every creative decision with intent.</p>
+            <span class="card-tag">↗ Explore</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- 页脚 -->
+<section class="footer-section">
+  <div class="section-label">Ready to start?</div>
+  <h2 class="footer-title" data-scroll-fill>Let's build something remarkable together.</h2>
+</section>
+
+
+<script>
+/* ===================================================
+   工具函数
+=================================================== */
+const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
+const lerp  = (a, b, t) => a + (b - a) * t;
+const mapRange = (v, inMin, inMax, outMin, outMax) => {
+  const t = clamp((v - inMin) / (inMax - inMin), 0, 1);
+  return outMin + t * (outMax - outMin);
+};
+
+
+/* ===================================================
+   动效 0：Hero 镜头推拉
+   
+   时间线（scrollY 在 [0, scrollSpace.offsetHeight - winH] 内）：
+   
+   0% → 40%：文字淡出，bg 轻微放大（推进感）
+   0% → 80%：clip-path inset 逐渐扩大（画面收窄）
+   80% → 100%：clip-path 继续到 inset(48%)，Hero 几乎消失
+   
+   clip-path inset(top right bottom left)，四边均匀收缩：
+     inset(0% round 0px)    → 全屏
+     inset(30% round 12px)  → 收缩为中间小窗
+=================================================== */
+function initHeroPushPull() {
+  const scrollSpace = document.getElementById('heroScrollSpace');
+  const clip        = document.getElementById('heroClip');
+  const bg          = document.getElementById('heroBg');
+  const content     = document.getElementById('heroContent');
+
+  if (!scrollSpace || !clip) return;
+
+  // 禁用 CSS animation（改由 JS 控制）
+  // bg 的入场动画保留，之后滚动再接管
+  let animDone = false;
+  setTimeout(() => { animDone = true; }, 1500); // animation 结束后 JS 接管
+
+  function update() {
+    const winH       = window.innerHeight;
+    const spaceTop   = scrollSpace.getBoundingClientRect().top;
+    const spaceH     = scrollSpace.offsetHeight;
+    const maxScroll  = spaceH - winH;
+
+    // scrolled：在 scrollSpace 内已滚过的距离
+    const scrolled = clamp(-spaceTop, 0, maxScroll);
+    const progress = scrolled / maxScroll; // 0 → 1
+
+    // --- clip-path ---
+    // 0% → 100%：inset 从 0% 扩大到 45%
+    // 用 round 值增加圆角（让收缩窗口有圆角）
+    const insetPct   = mapRange(progress, 0, 1, 0, 47);
+    const radiusPx   = mapRange(progress, 0, 0.3, 0, 16);
+    clip.style.clipPath = `inset(${insetPct.toFixed(2)}% round ${radiusPx.toFixed(1)}px)`;
+
+    // --- 背景放大（推进） ---
+    // 入场动画结束后，从 scale(1) → scale(1.25)
+    if (animDone) {
+      const bgScale = mapRange(progress, 0, 0.8, 1.0, 1.25);
+      bg.style.transform = `scale(${bgScale.toFixed(4)})`;
+    }
+
+    // --- 文字淡出 ---
+    // 0% → 35%：opacity 1 → 0，向上移出
+    if (content) {
+      const contentOpacity   = mapRange(progress, 0, 0.35, 1, 0);
+      const contentTranslate = mapRange(progress, 0, 0.35, 0, -40);
+      content.style.opacity   = contentOpacity.toFixed(3);
+      content.style.transform = `translateY(${contentTranslate.toFixed(1)}px)`;
+    }
+  }
+
+  update();
+  window.addEventListener('scroll', update, { passive: true });
+  window.addEventListener('resize', update);
+}
+
+
+/* ===================================================
+   动效 1A：大标题渐进填充
+=================================================== */
+function initScrollFillText() {
+  const fillEls = document.querySelectorAll('[data-scroll-fill]');
+  fillEls.forEach(el => {
+    const update = () => {
+      const rect = el.getBoundingClientRect();
+      const winH = window.innerHeight;
+      const pct  = mapRange(rect.top, winH * 0.75, winH * 0.1, 0, 100);
+      el.style.setProperty('--fill-pct', `${pct.toFixed(1)}%`);
+    };
+    update();
+    window.addEventListener('scroll', update, { passive: true });
+  });
+}
+
+
+/* ===================================================
+   动效 1B：逐词填充
+=================================================== */
+function initWordFill() {
+  const containers = document.querySelectorAll('[data-word-fill]');
+  containers.forEach(container => {
+    const text  = container.textContent.trim();
+    const words = text.split(/\s+/);
+    container.innerHTML = words.map(w => `<span class="word">${w}</span>`).join(' ');
+    const wordEls = container.querySelectorAll('.word');
+    const update = () => {
+      const threshold = window.innerHeight * 0.72;
+      wordEls.forEach(word => {
+        const rect = word.getBoundingClientRect();
+        if (rect.top < threshold) word.classList.add('filled');
+        else word.classList.remove('filled');
+      });
+    };
+    update();
+    window.addEventListener('scroll', update, { passive: true });
+  });
+}
+
+
+/* ===================================================
+   动效 1C：段落整体入场
+=================================================== */
+function initParaFill() {
+  const obs = new IntersectionObserver(
+    entries => entries.forEach(e => {
+      if (e.isIntersecting) e.target.classList.add('in-view');
+      else e.target.classList.remove('in-view');
+    }),
+    { threshold: 0.4 }
+  );
+  document.querySelectorAll('[data-para-fill]').forEach(p => obs.observe(p));
+}
+
+
+/* ===================================================
+   动效 2：卡片横向滑动
+=================================================== */
+function initHorizontalScroll() {
+  const outer    = document.getElementById('hsOuter');
+  const track    = document.getElementById('cardsTrack');
+  const progress = document.getElementById('hsProgress');
+  if (!outer || !track) return;
+
+  const cardCount = track.querySelectorAll('.h-card').length;
+  const scrollMultiplier = cardCount + 0.5;
+  outer.style.setProperty('--scroll-height', `${scrollMultiplier * 100}vh`);
+
+  const update = () => {
+    const outerRect  = outer.getBoundingClientRect();
+    const winH       = window.innerHeight;
+    const outerH     = outer.offsetHeight;
+    const rawProgress = clamp(-outerRect.top / (outerH - winH), 0, 1);
+
+    const trackWidth   = track.scrollWidth;
+    const visibleWidth = outer.offsetWidth - 96;
+    const maxTranslate = Math.max(trackWidth - visibleWidth, 0);
+
+    track.style.transform = `translateX(-${(rawProgress * maxTranslate).toFixed(2)}px)`;
+    if (progress) progress.style.width = `${(rawProgress * 100).toFixed(1)}%`;
+  };
+
+  update();
+  window.addEventListener('scroll', update, { passive: true });
+  window.addEventListener('resize', () => {
+    outer.style.setProperty('--scroll-height', `${scrollMultiplier * 100}vh`);
+    update();
+  });
+}
+
+
+/* ===== 启动 ===== */
+document.addEventListener('DOMContentLoaded', () => {
+  initHeroPushPull();
+  initScrollFillText();
+  initWordFill();
+  initParaFill();
+  initHorizontalScroll();
+});
+</script>
+
+</body>
+</html>
