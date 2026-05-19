@@ -4,23 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Portfolio — Your Name</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,500;1,600;1,700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Bungee+Shade&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Fredericka+the+Great&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Kings&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Changa+One&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Abril+Fatface&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Rubik+Lines&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Moo+Lah+Lah&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Jost:ital,wght@0,400;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=League+Script&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=ZCOOL+XiaoWei&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+    <link rel="preconnect" href="https://fonts.loli.net">
+    <link href="https://fonts.loli.net/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet">
+    <link href="https://fonts.loli.net/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,500;1,600;1,700&display=swap" rel="stylesheet">
+    <link href="https://fonts.loli.net/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.loli.net/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&display=swap" rel="stylesheet">
+    <link href="https://fonts.loli.net/css2?family=Bungee+Shade&display=swap" rel="stylesheet">
+    <link href="https://fonts.loli.net/css2?family=Fredericka+the+Great&display=swap" rel="stylesheet">
+    <link href="https://fonts.loli.net/css2?family=Kings&display=swap" rel="stylesheet">
+    <link href="https://fonts.loli.net/css2?family=Changa+One&display=swap" rel="stylesheet">
+    <link href="https://fonts.loli.net/css2?family=Abril+Fatface&display=swap" rel="stylesheet">
+    <link href="https://fonts.loli.net/css2?family=Rubik+Lines&display=swap" rel="stylesheet">
+    <link href="https://fonts.loli.net/css2?family=Moo+Lah+Lah&display=swap" rel="stylesheet">
+    <link href="https://fonts.loli.net/css2?family=Jost:ital,wght@0,400;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+    <link href="https://fonts.loli.net/css2?family=League+Script&display=swap" rel="stylesheet">
+    <link href="https://fonts.loli.net/css2?family=ZCOOL+XiaoWei&display=swap" rel="stylesheet">
+    <link href="https://fonts.loli.net/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+    <script src="https://lf6-cdn-tos.bytecdntp.com/cdn/expire-1-M/three.js/0.160.0/three.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -4100,6 +4100,20 @@
                 span.style.transitionDelay = `${0.8 + i * 0.05}s`;
                 brand.appendChild(span);
             });
+
+            // ── Fallback: force exit after 6s even if fonts/CDN fail ──
+            setTimeout(() => {
+                if (!preloader.classList.contains('exit')) {
+                    brand.querySelectorAll('.char').forEach(c => c.classList.add('reveal'));
+                    sub.classList.add('reveal');
+                    brand.classList.add('focused');
+                    preloader.classList.add('exit');
+                    mainContent.classList.add('entered');
+                    nav.classList.add('visible');
+                    window.dispatchEvent(new CustomEvent('preloaderComplete'));
+                    setTimeout(() => { preloader.style.display = 'none'; }, 1400);
+                }
+            }, 6000);
 
             window.addEventListener('load', () => {
                 setTimeout(() => {
