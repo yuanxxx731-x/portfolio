@@ -20,7 +20,7 @@
     <link href="https://fonts.loli.net/css2?family=League+Script&display=swap" rel="stylesheet">
     <link href="https://fonts.loli.net/css2?family=ZCOOL+XiaoWei&display=swap" rel="stylesheet">
     <link href="https://fonts.loli.net/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
-    <script src="https://lf6-cdn-tos.bytecdntp.com/cdn/expire-1-M/three.js/0.160.0/three.min.js"></script>
+    <script src="https://lf6-cdn-tos.bytecdntp.com/cdn/expire-1-M/three.js/0.160.0/three.min.js" async onerror="window.__threeFailed=true"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -305,6 +305,15 @@
         }
         .hero-particles canvas {
             display: block;
+        }
+        /* Nebula fallback: animated gradient when Three.js unavailable */
+        .hero.nebula-fallback {
+            background: radial-gradient(ellipse 80% 60% at 50% 40%, #1a1a2e 0%, #16213e 30%, #0f0f1a 60%, #0a0a0a 100%);
+            animation: nebulaFallbackPulse 6s ease-in-out infinite;
+        }
+        @keyframes nebulaFallbackPulse {
+            0%, 100% { background: radial-gradient(ellipse 80% 60% at 50% 40%, #1a1a2e 0%, #16213e 30%, #0f0f1a 60%, #0a0a0a 100%); }
+            50% { background: radial-gradient(ellipse 80% 60% at 50% 40%, #1e1e36 0%, #1a2a4a 30%, #12122a 60%, #0a0a0a 100%); }
         }
         .hero-inner {
             display: flex;
@@ -4101,21 +4110,8 @@
                 brand.appendChild(span);
             });
 
-            // ── Fallback: force exit after 6s even if fonts/CDN fail ──
+            // ── Timer-driven: never waits for fonts/CDN/Three.js ──
             setTimeout(() => {
-                if (!preloader.classList.contains('exit')) {
-                    brand.querySelectorAll('.char').forEach(c => c.classList.add('reveal'));
-                    sub.classList.add('reveal');
-                    brand.classList.add('focused');
-                    preloader.classList.add('exit');
-                    mainContent.classList.add('entered');
-                    nav.classList.add('visible');
-                    window.dispatchEvent(new CustomEvent('preloaderComplete'));
-                    setTimeout(() => { preloader.style.display = 'none'; }, 1400);
-                }
-            }, 6000);
-
-            window.addEventListener('load', () => {
                 setTimeout(() => {
                     brand.querySelectorAll('.char').forEach(c => c.classList.add('reveal'));
                     sub.classList.add('reveal');
@@ -4193,7 +4189,7 @@
                     animateStats();
                     }, bioDelay + 400);
                     setTimeout(() => { preloader.style.display = 'none'; }, 5000);
-                }, 2800);
+                }, 2500);
             });
         })();
 
@@ -4362,6 +4358,13 @@ void main() {
                 const w = rect.width;
                 const h = rect.height;
                 if (w < 1 || h < 1) { console.log('Nebula: hero has zero size, retrying...'); setTimeout(start, 200); return; }
+                if (typeof THREE === 'undefined') {
+                    window.__threeRetries = (window.__threeRetries || 0) + 1;
+                    if (window.__threeFailed || window.__threeRetries > 30) { console.log('Nebula: THREE unavailable, using CSS fallback'); hero.classList.add('nebula-fallback'); return; }
+                    console.log('Nebula: waiting for THREE... retry', window.__threeRetries);
+                    setTimeout(start, 400); return;
+                }
+                if (sceneData) { console.log('Nebula: already initialized'); return; }
                 console.log('Nebula: init with', PARTICLE_COUNT, 'particles, hero size', w, 'x', h);
 
                 const scene = new THREE.Scene();
