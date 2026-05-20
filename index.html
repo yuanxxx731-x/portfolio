@@ -20,7 +20,22 @@
     <link href="https://fonts.loli.net/css2?family=League+Script&display=swap" rel="stylesheet">
     <link href="https://fonts.loli.net/css2?family=ZCOOL+XiaoWei&display=swap" rel="stylesheet">
     <link href="https://fonts.loli.net/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js" async onerror="window.__threeFailed=true"></script>
+    <script>
+        // Three.js multi-CDN loader — tries each until one succeeds
+        (function loadThree(i) {
+            var cdns = [
+                'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js',
+                'https://unpkg.com/three@0.160.0/build/three.min.js',
+                'https://lf6-cdn-tos.bytecdntp.com/cdn/expire-1-M/three.js/0.160.0/three.min.js'
+            ];
+            if (i >= cdns.length) { window.__threeFailed = true; return; }
+            var s = document.createElement('script');
+            s.src = cdns[i]; s.async = true;
+            s.onload = function() { console.log('Three.js loaded from CDN', i); };
+            s.onerror = function() { console.warn('Three.js CDN', i, 'failed, trying next...'); loadThree(i + 1); };
+            document.head.appendChild(s);
+        })(0);
+    </script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
